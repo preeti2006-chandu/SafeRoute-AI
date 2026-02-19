@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>SafeRoute AI (OpenStreetMap)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    #map { height: 75vh; }
+    .panel {
+      padding: 10px;
+      background: #f7f7f7;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    input, select, button {
+      padding: 8px;
+    }
+    .risk { font-weight: bold; margin-left: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <input id="start" placeholder="Start (lat,lng)" />
+    <input id="end" placeholder="End (lat,lng)" />
+    
+    <select id="lighting">
+      <option value="1">Good Lighting</option>
+      <option value="0">Poor Lighting</option>
+    </select>
+
+    <select id="crowd">
+      <option value="1">Crowded</option>
+      <option value="0">Empty</option>
+    </select>
+
+    <button onclick="useMyLocation()">Use My Location</button>
+    <button onclick="drawRoute()">Check Safe Route</button>
+
+    <span id="risk" class="risk"></span>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const map = L.map('map').setView([17.3850, 78.4867], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let routeLine;
+    let userMarker;
+
+    function useMyLocation() {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        document.getElementById("start").value = lat.toFixed(5) + "," + lng.toFixed(5);
+
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng]).addTo(map).bindPopup("Your Location").openPopup();
+        map.setView([lat, lng], 14);
+      });
+    }
+
+    async function drawRoute() {
+      const start = document.getElementById("start").value.split(",");
+      const end = document.getElementById("end").value.split(",");
+
+      const lighting = parseInt(document.getElementById("lighting").value);
+      const crowd = parseInt(document.getElementById("crowd").value);
+
+      const startLatLng = [parseFloat(start[0]), parseFloat(start[1])];
+      const endLatLng = [parseFloat(end[0]), parseFloat(end[1])];
+
+      if (routeLine) map.removeLayer(routeLine);
+
+      const res = await fetch("http://127.0.0.1:5000/predict-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          crime_rate: Math.floor(Math.random() * 100),
+          lighting: lighting,
+          crowd: crowd
+        })
+      });
+
+      const data = await res.json();
+      const risk = data.risk_level;
+
+      let color = "green";
+      if (risk === "Medium Risk") color = "orange";
+      if (risk === "High Risk") color = "red";
+
+      routeLine = L.polyline([startLatLng, endLatLng], { color, weight: 5 }).addTo(map);
+      map.fitBounds(routeLine.getBounds());
+
+      document.getElementById("risk").innerText = "Risk: " + risk;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h3>Test SafeRoute API</h3>
+  <button onclick="testAPI()">Test API</button>
+  <pre id="out"></pre>
+
+  <script>
+    async function testAPI() {
+      const res = await fetch("http://127.0.0.1:5000/predict-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crime_rate: 60, lighting: 1, crowd: 0 })
+      });
+      const data = await res.json();
+      document.getElementById("out").innerText = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
